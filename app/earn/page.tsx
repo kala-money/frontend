@@ -152,7 +152,7 @@ export default function EarnPage() {
 
                 <section className="text-center space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                     <h1 className="text-4xl md:text-5xl font-bold text-zinc-100">
-                        Earn &amp; <span className="text-[#cc7a0e]">Exit</span>
+                        Earn &amp; <span className="text-[#cc7a0e]">on kala</span>
                     </h1>
                     <p className="text-zinc-400 max-w-2xl mx-auto text-lg leading-relaxed">
                         The canonical liquidity layer for KALA. Provide liquidity to the oracle-aligned
@@ -197,7 +197,7 @@ export default function EarnPage() {
                         <div className="flex items-center justify-between mb-8">
                             <h2 className="text-2xl font-bold text-zinc-100 flex items-center gap-2">
                                 <Wallet className="w-6 h-6 text-[#cc7a0e]" />
-                                Liquidity Provision
+                                Liquidity Provider
                             </h2>
                             <div className="px-3 py-1 rounded-full bg-[#cc7a0e]/10 border border-[#cc7a0e]/20 text-[#cc7a0e] text-xs font-bold uppercase tracking-wider">
                                 v4 Hook
@@ -208,7 +208,7 @@ export default function EarnPage() {
                             <div className="space-y-4">
                                 <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-2">
                                     <div className="flex justify-between text-sm text-zinc-400">
-                                        <span>Asset 1</span>
+                                        <span>ETH</span>
                                         <span>Balance: {ethBalance ? Number(formatUnits(ethBalance.value, 18)).toFixed(4) : "0.00"} ETH</span>
                                     </div>
                                     <div className="flex items-center justify-between gap-4">
@@ -237,7 +237,7 @@ export default function EarnPage() {
 
                                 <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-2">
                                     <div className="flex justify-between text-sm text-zinc-400">
-                                        <span>Asset 2</span>
+                                        <span>KALA</span>
                                         <span>Balance: {Number(kalaFormatted).toFixed(2)} KALA</span>
                                     </div>
                                     <div className="flex items-center justify-between gap-4">

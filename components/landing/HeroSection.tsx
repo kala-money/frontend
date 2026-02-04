@@ -9,7 +9,6 @@ export default function HeroSection() {
     return (
         <section className="relative min-h-[80vh] flex flex-col items-center justify-center text-center px-4 overflow-hidden pt-20">
 
-            {/* Background Ambience */}
             <div className="absolute inset-0 pointer-events-none z-0">
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[120px] animate-pulse-slow" />
             </div>
@@ -21,7 +20,7 @@ export default function HeroSection() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2 }}
                 >
-                    KALA is a stablecoin<br />
+                    KALA is a programmable stable coin<br />
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-amber-200">
                         that does not a 1:1 fiat peg.
                     </span>
@@ -33,7 +32,7 @@ export default function HeroSection() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.4 }}
                 >
-                    It maintains stability using a CRE-computed purchasing-power reference and ETH-backed collateral with staking-supported reserves.
+                    Designed to preserve real purchasing power rather than track a fiat currency. Its value dynamically adjusts based on economic fundamentals instead of remaining fixed to USD.
                 </motion.p>
 
                 <motion.div

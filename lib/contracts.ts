@@ -14,6 +14,10 @@ export const UNISWAP_V4_POOL_MANAGER = {
     [sepolia.id]: "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
 } as const;
 
+export const STATE_VIEW_ADDRESS = {
+    [sepolia.id]: "0xE1Dd9c3fA50EDB962E442f60DfBc432e24537E4C",
+} as const;
+
 export const KALA_DEPLOYMENT_BLOCK = {
     [sepolia.id]: 10181655n,
 } as const;
