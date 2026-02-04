@@ -21,9 +21,9 @@ export default function HeroSection() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2 }}
                 >
-                    Stability Defined by <br />
+                    KALA is a stablecoin<br />
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-amber-200">
-                        Purchasing Power.
+                        that does not a 1:1 fiat peg.
                     </span>
                 </motion.h1>
 
@@ -33,7 +33,7 @@ export default function HeroSection() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.4 }}
                 >
-                    KALA is an ETH-backed stable asset. It targets global economic resilience using real-time signals from the Chainlink Runtime Environment—not a fiat peg.
+                    It maintains stability using a CRE-computed purchasing-power reference and ETH-backed collateral with staking-supported reserves.
                 </motion.p>
 
                 <motion.div
