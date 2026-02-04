@@ -7,12 +7,18 @@ import { Globe, Cpu, ShieldCheck, ArrowRight, Zap } from "lucide-react";
 export default function MechanismVisualizer() {
     return (
         <div className="w-full max-w-5xl mx-auto py-12 px-4">
+            <div className="text-center mb-12">
+                <h3 className="text-xl font-medium text-white mb-2">Real-Time Economic Computation</h3>
+                <p className="text-sm text-zinc-500 max-w-lg mx-auto font-light">
+                    The Chainlink Runtime Environment (CRE) aggregates diverse economic signals to compute the persistent purchasing power reference.
+                </p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-7 gap-6 items-center">
                 {/* INPUTS */}
                 <div className="col-span-1 md:col-span-2 flex flex-col gap-4">
-                    <InputCard icon={<Globe className="w-5 h-5 text-green-400" />} label="Global Purchasing Power Index" delay={1} />
-                    <InputCard icon={<Globe className="w-5 h-5 text-yellow-400" />} label="Gold & Commodities" delay={0} />
-                    <InputCard icon={<Zap className="w-5 h-5 text-silver-400" />} label="ETH Demand" delay={0.5} />
+                    <InputCard icon={<Globe className="w-5 h-5 text-primary" />} label="Purchasing Power Indices" delay={1} />
+                    <InputCard icon={<Globe className="w-5 h-5 text-amber-500" />} label="Commodity Primitives" delay={0} />
+                    <InputCard icon={<Zap className="w-5 h-5 text-amber-200" />} label="Network Activity" delay={0.5} />
                 </div>
 
                 {/* FLOW 1 */}
@@ -30,12 +36,8 @@ export default function MechanismVisualizer() {
                         />
                         <div className="w-24 h-24 bg-black/80 border border-primary/50 rounded-full flex flex-col items-center justify-center shadow-[0_0_30px_rgba(204,122,14,0.3)] backdrop-blur-xl">
                             <Cpu className="w-8 h-8 text-primary mb-1" />
-                            <span className="text-[10px] font-mono text-primary/80">CRE</span>
+                            <span className="text-[10px] font-mono text-primary/80 uppercase tracking-tighter">CRE</span>
                         </div>
-                    </div>
-                    <div className="mt-4 text-center">
-                        <p className="text-xs text-zinc-400">Oracle Runtime</p>
-                        <p className="text-xs text-zinc-500">Aggregates & Computes</p>
                     </div>
                 </div>
 
@@ -46,19 +48,19 @@ export default function MechanismVisualizer() {
 
                 {/* OUTPUT */}
                 <div className="col-span-1 md:col-span-2 flex flex-col items-center justify-center">
-                    <div className="w-full p-6 glass-card rounded-xl border border-white/10 relative overflow-hidden group">
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+                    <div className="w-full p-6 glass-card rounded-xl border border-white/10 relative overflow-hidden group bg-white/2">
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
                         <div className="flex items-center gap-4 mb-2">
                             <ShieldCheck className="w-8 h-8 text-primary" />
                             <div>
-                                <h3 className="text-lg font-bold text-white">KALA Price</h3>
-                                <p className="text-xs text-zinc-400">Purchasing Power Parity</p>
+                                <h3 className="text-sm font-medium text-white font-bold">Stability Reference</h3>
+                                <p className="text-[10px] uppercase font-mono tracking-widest text-zinc-500">Protocol State</p>
                             </div>
                         </div>
-                        <div className="space-y-2 mt-4">
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-zinc-500">Target</span>
-                                <span className="font-mono text-zinc-200">1.63 KALA</span>
+                        <div className="space-y-4 mt-6">
+                            <div className="flex justify-between items-center text-xs font-mono">
+                                <span className="text-zinc-500">Index Target</span>
+                                <span className="text-primary font-bold">1.63 KALA</span>
                             </div>
                             <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                                 <motion.div
@@ -68,6 +70,9 @@ export default function MechanismVisualizer() {
                                     transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                                 />
                             </div>
+                            <p className="text-[10px] text-zinc-600 italic">
+                                * Value evolves based on computed purchasing power signals.
+                            </p>
                         </div>
                     </div>
                 </div>
