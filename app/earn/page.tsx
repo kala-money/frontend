@@ -29,11 +29,24 @@ export default function EarnPage() {
     const { data: ethBalance } = useBalance({ address });
     const { prices } = usePriceFeed();
     const hookData = useKalaHook();
-    const { addLiquidity, isPending: isAddingLiquidity, isConfirming, isSuccess, error, hash } = useAddLiquidity();
+    const {
+        addLiquidity,
+        removeLiquidity,
+        getEstimatedAmounts,
+        isPending: isContractPending,
+        isConfirming,
+        isSuccess,
+        error,
+        hash,
+        userLiquidity,
+        userAmounts
+    } = useAddLiquidity();
 
+    const [activeTab, setActiveTab] = useState<"add" | "remove">("add");
     const [amountEth, setAmountEth] = useState("");
     const [amountKala, setAmountKala] = useState("");
-    const [step, setStep] = useState<"idle" | "approve" | "add">("idle");
+    const [removePercent, setRemovePercent] = useState<number>(0);
+    const [step, setStep] = useState<"idle" | "approve" | "add" | "remove">("idle");
 
     const { writeContract: approve, data: approveHash, isPending: isApproving } = useWriteContract();
     const { isSuccess: approveSuccess } = useWaitForTransactionReceipt({ hash: approveHash });
@@ -46,9 +59,13 @@ export default function EarnPage() {
     const maxFeePercent = 10.0;
     const hookAddress = KALA_HOOK_ADDRESS[sepolia.id];
 
-    const hasValidInput = amountEth && amountKala && parseFloat(amountEth) > 0 && parseFloat(amountKala) > 0;
-    const isPending = isApproving || isAddingLiquidity || isConfirming;
-    const canProvide = isConnected && hasValidInput && !isPending;
+    const isPending = isApproving || isContractPending || isConfirming;
+    const hasValidAddInput = amountEth && amountKala && parseFloat(amountEth) > 0 && parseFloat(amountKala) > 0;
+    const canProvide = isConnected && hasValidAddInput && !isPending && activeTab === "add";
+
+    const hasValidRemoveInput = removePercent > 0 && userLiquidity > 0n;
+    const canRemove = isConnected && hasValidRemoveInput && !isPending && activeTab === "remove";
+
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [successTxHash, setSuccessTxHash] = useState<string | null>(null);
 
@@ -65,6 +82,7 @@ export default function EarnPage() {
             setShowSuccessModal(true);
             setAmountEth("");
             setAmountKala("");
+            setRemovePercent(0);
             setStep("idle");
         }
     }, [isSuccess, hash]);
@@ -108,9 +126,12 @@ export default function EarnPage() {
         });
     };
 
-    const handleWithdraw = () => {
-        if (!isConnected) return;
-        alert("Withdraw functionality coming soon.");
+    const handleRemoveLiquidity = async () => {
+        if (!canRemove) return;
+
+        setStep("remove");
+        const removeAmount = (userLiquidity * BigInt(Math.floor(removePercent * 100))) / 10000n;
+        removeLiquidity(removeAmount);
     };
 
     return (
@@ -123,7 +144,9 @@ export default function EarnPage() {
                                 <ShieldCheck className="w-4 h-4 text-green-500" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-bold text-zinc-100">Liquidity Added!</h3>
+                                <h3 className="text-sm font-bold text-zinc-100">
+                                    {activeTab === "add" ? "Liquidity Added!" : "Liquidity Removed!"}
+                                </h3>
                                 <p className="text-xs text-zinc-400">KALA/ETH pool</p>
                             </div>
                             <button
@@ -194,113 +217,209 @@ export default function EarnPage() {
                 <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-8 duration-1000 ease-out fill-mode-backwards delay-200">
 
                     <div className="lg:col-span-2 glass-card rounded-3xl p-8 border border-white/5 shadow-xl">
-                        <div className="flex items-center justify-between mb-8">
-                            <h2 className="text-2xl font-bold text-zinc-100 flex items-center gap-2">
-                                <Wallet className="w-6 h-6 text-[#cc7a0e]" />
-                                Liquidity Provider
-                            </h2>
-                            <div className="px-3 py-1 rounded-full bg-[#cc7a0e]/10 border border-[#cc7a0e]/20 text-[#cc7a0e] text-xs font-bold uppercase tracking-wider">
-                                v4 Hook
-                            </div>
+                        <div className="flex items-center gap-4 mb-8">
+                            <button
+                                onClick={() => setActiveTab("add")}
+                                className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all ${activeTab === "add"
+                                    ? "bg-[#cc7a0e] text-white shadow-lg"
+                                    : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"}`}
+                            >
+                                Add Liquidity
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("remove")}
+                                className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all ${activeTab === "remove"
+                                    ? "bg-[#cc7a0e] text-white shadow-lg"
+                                    : "bg-zinc-800/50 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"}`}
+                            >
+                                Remove Liquidity
+                            </button>
                         </div>
 
                         <div className="space-y-6">
-                            <div className="space-y-4">
-                                <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-2">
-                                    <div className="flex justify-between text-sm text-zinc-400">
-                                        <span>ETH</span>
-                                        <span>Balance: {ethBalance ? Number(formatUnits(ethBalance.value, 18)).toFixed(4) : "0.00"} ETH</span>
+                            {activeTab === "add" ? (
+                                <div className="space-y-4">
+                                    <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-2">
+                                        <div className="flex justify-between text-sm text-zinc-400">
+                                            <span>ETH</span>
+                                            <span>Balance: {ethBalance ? Number(formatUnits(ethBalance.value, 18)).toFixed(4) : "0.00"} ETH</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <input
+                                                type="number"
+                                                placeholder="0.00"
+                                                min="0"
+                                                className="bg-transparent text-2xl font-bold text-white placeholder-zinc-600 outline-none w-full"
+                                                value={amountEth}
+                                                onChange={(e) => handleEthChange(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "-" || e.key === "e") {
+                                                        e.preventDefault();
+                                                    }
+                                                }}
+                                            />
+                                            <span className="text-lg font-bold text-zinc-300">ETH</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <input
-                                            type="number"
-                                            placeholder="0.00"
-                                            min="0"
-                                            className="bg-transparent text-2xl font-bold text-white placeholder-zinc-600 outline-none w-full"
-                                            value={amountEth}
-                                            onChange={(e) => handleEthChange(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "-" || e.key === "e") {
-                                                    e.preventDefault();
-                                                }
-                                            }}
-                                        />
-                                        <span className="text-lg font-bold text-zinc-300">ETH</span>
-                                    </div>
-                                </div>
 
-                                <div className="flex justify-center -my-2 relative z-10">
-                                    <div className="bg-zinc-900 border border-zinc-700 p-1.5 rounded-full">
-                                        <ArrowRightLeft className="w-4 h-4 text-zinc-400" />
+                                    <div className="flex justify-center -my-2 relative z-10">
+                                        <div className="bg-zinc-900 border border-zinc-700 p-1.5 rounded-full">
+                                            <ArrowRightLeft className="w-4 h-4 text-zinc-400" />
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-2">
-                                    <div className="flex justify-between text-sm text-zinc-400">
-                                        <span>KALA</span>
-                                        <span>Balance: {Number(kalaFormatted).toFixed(2)} KALA</span>
+                                    <div className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-2">
+                                        <div className="flex justify-between text-sm text-zinc-400">
+                                            <span>KALA</span>
+                                            <span>Balance: {Number(kalaFormatted).toFixed(2)} KALA</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <input
+                                                type="number"
+                                                placeholder="0.00"
+                                                min="0"
+                                                className="bg-transparent text-2xl font-bold text-white placeholder-zinc-600 outline-none w-full"
+                                                value={amountKala}
+                                                onChange={(e) => handleKalaChange(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === "-" || e.key === "e") {
+                                                        e.preventDefault();
+                                                    }
+                                                }}
+                                            />
+                                            <span className="text-lg font-bold text-zinc-300">KALA</span>
+                                        </div>
                                     </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <input
-                                            type="number"
-                                            placeholder="0.00"
-                                            min="0"
-                                            className="bg-transparent text-2xl font-bold text-white placeholder-zinc-600 outline-none w-full"
-                                            value={amountKala}
-                                            onChange={(e) => handleKalaChange(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === "-" || e.key === "e") {
-                                                    e.preventDefault();
-                                                }
-                                            }}
-                                        />
-                                        <span className="text-lg font-bold text-zinc-300">KALA</span>
-                                    </div>
-                                </div>
-                            </div>
 
-                            <div className="bg-[#cc7a0e]/5 border border-[#cc7a0e]/10 rounded-xl p-4 space-y-2">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-zinc-400">Hook Address</span>
-                                    <a
-                                        href={`https://sepolia.etherscan.io/address/${hookAddress}`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-[#cc7a0e] font-mono text-xs hover:underline"
+                                    <div className="bg-[#cc7a0e]/5 border border-[#cc7a0e]/10 rounded-xl p-4 space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-zinc-400">Hook Address</span>
+                                            <a
+                                                href={`https://sepolia.etherscan.io/address/${hookAddress}`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-[#cc7a0e] font-mono text-xs hover:underline"
+                                            >
+                                                {hookAddress.slice(0, 10)}...{hookAddress.slice(-8)}
+                                            </a>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-zinc-400">Fee Tier</span>
+                                            <span className="text-zinc-200 font-mono">0.30%</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-zinc-400">Dynamic Fee</span>
+                                            <span className="text-zinc-200 font-mono">{minFeePercent}% - {maxFeePercent}%</span>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={handleProvideLiquidity}
+                                        disabled={!canProvide}
+                                        className="w-full bg-[#cc7a0e] hover:bg-[#b0680c] text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                                     >
-                                        {hookAddress.slice(0, 10)}...{hookAddress.slice(-8)}
-                                    </a>
+                                        {(isPending && activeTab === "add") && <Loader2 className="w-4 h-4 animate-spin" />}
+                                        {step === "approve" ? "Approving KALA..." :
+                                            step === "add" ? "Adding Liquidity..." :
+                                                (isConfirming && activeTab === "add") ? "Confirming..." :
+                                                    "Provide Liquidity"}
+                                    </button>
                                 </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-zinc-400">Fee Tier</span>
-                                    <span className="text-zinc-200 font-mono">0.30%</span>
-                                </div>
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-zinc-400">Dynamic Fee</span>
-                                    <span className="text-zinc-200 font-mono">{minFeePercent}% - {maxFeePercent}%</span>
-                                </div>
-                            </div>
+                            ) : (
+                                <div className="space-y-6">
+                                    <div className="bg-black/20 p-6 rounded-xl border border-white/5 space-y-6">
+                                        <div className="flex justify-between items-start text-sm text-zinc-400">
+                                            <span>Your Liquidity</span>
+                                            <div className="text-right">
+                                                <div className="text-white font-medium flex flex-col gap-1">
+                                                    <span>
+                                                        {new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(Number(formatUnits(userAmounts[0], 18)))} ETH
+                                                    </span>
+                                                    <span>
+                                                        {new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Number(formatUnits(userAmounts[1], 18)))} KALA
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                            <div className="grid grid-cols-2 gap-4 pt-2">
-                                <button
-                                    onClick={handleProvideLiquidity}
-                                    disabled={!canProvide}
-                                    className="bg-[#cc7a0e] hover:bg-[#b0680c] text-white font-bold py-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
-                                >
-                                    {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
-                                    {step === "approve" ? "Approving KALA..." :
-                                        step === "add" ? "Adding Liquidity..." :
-                                            isConfirming ? "Confirming..." :
-                                                "Provide Liquidity"}
-                                </button>
-                                <button
-                                    onClick={handleWithdraw}
-                                    disabled={!isConnected}
-                                    className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold py-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                                >
-                                    Withdraw
-                                </button>
-                            </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+                                                <div className="text-xs text-zinc-500 mb-1">To Receive (ETH)</div>
+                                                <div className="text-xl font-bold text-white">
+                                                    {(() => {
+                                                        const removeAmount = (userLiquidity * BigInt(Math.floor(removePercent * 100))) / 10000n;
+                                                        const [eth] = getEstimatedAmounts(removeAmount);
+                                                        return new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(Number(formatUnits(eth, 18)));
+                                                    })()}
+                                                </div>
+                                            </div>
+                                            <div className="bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+                                                <div className="text-xs text-zinc-500 mb-1">To Receive (KALA)</div>
+                                                <div className="text-xl font-bold text-white">
+                                                    {(() => {
+                                                        const removeAmount = (userLiquidity * BigInt(Math.floor(removePercent * 100))) / 10000n;
+                                                        const [, kala] = getEstimatedAmounts(removeAmount);
+                                                        return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Number(formatUnits(kala, 18)));
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="flex items-end justify-between">
+                                                <span className="text-4xl font-bold text-white transition-all">
+                                                    {removePercent}%
+                                                </span>
+                                                <div className="flex gap-2">
+                                                    {[25, 50, 75, 100].map((pct) => (
+                                                        <button
+                                                            key={pct}
+                                                            onClick={() => setRemovePercent(pct)}
+                                                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${removePercent === pct
+                                                                ? "bg-[#cc7a0e] text-white"
+                                                                : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"}`}
+                                                        >
+                                                            {pct}%
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="100"
+                                                step="1"
+                                                value={removePercent}
+                                                onChange={(e) => setRemovePercent(parseInt(e.target.value))}
+                                                className="w-full h-2 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-[#cc7a0e]"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-[#cc7a0e]/5 border border-[#cc7a0e]/10 rounded-xl p-4 space-y-3">
+                                        <div className="flex items-center gap-2 text-[#cc7a0e]">
+                                            <Info className="w-4 h-4" />
+                                            <span className="text-xs font-bold uppercase tracking-wider">Removal Note</span>
+                                        </div>
+                                        <p className="text-xs text-zinc-400 leading-relaxed">
+                                            Removing liquidity will return your proportional share of ETH and KALA
+                                            to your wallet. Fee earnings are collected automatically.
+                                        </p>
+                                    </div>
+
+                                    <button
+                                        onClick={handleRemoveLiquidity}
+                                        disabled={!canRemove}
+                                        className="w-full bg-zinc-100 hover:bg-white text-black font-bold py-4 rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                                    >
+                                        {(isPending && activeTab === "remove") && <Loader2 className="w-4 h-4 animate-spin" />}
+                                        {(isConfirming && activeTab === "remove") ? "Confirming..." :
+                                            step === "remove" ? "Removing Liquidity..." :
+                                                "Remove Liquidity"}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 

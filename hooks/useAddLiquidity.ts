@@ -1,6 +1,6 @@
 "use client";
 
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from "wagmi";
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from "wagmi";
 import { parseEther, zeroAddress, keccak256, encodeAbiParameters } from "viem";
 import { PoolModifyLiquidityTestAbi } from "@/abis/PoolModifyLiquidityTestAbi";
 import { StateViewAbi } from "@/abis/StateViewAbi";
@@ -12,6 +12,8 @@ const KALA_TOKEN = "0xAF53484b277e9b7e9Fb224D2e534ee9beB68B7BA" as const;
 
 const TICK_LOWER = -887220;
 const TICK_UPPER = 887220;
+
+const OLD_KALA_HOOK = "0xd748e26b7da263861a9559cE59F9c78646Ac0080" as const;
 
 const Q96 = BigInt(2) ** BigInt(96);
 
@@ -90,7 +92,51 @@ function getLiquidityForAmounts(
     }
 }
 
+function getAmount0ForLiquidity(
+    sqrtPriceAX96: bigint,
+    sqrtPriceBX96: bigint,
+    liquidity: bigint
+): bigint {
+    if (sqrtPriceAX96 > sqrtPriceBX96) {
+        [sqrtPriceAX96, sqrtPriceBX96] = [sqrtPriceBX96, sqrtPriceAX96];
+    }
+    return (liquidity * Q96 * (sqrtPriceBX96 - sqrtPriceAX96)) / (sqrtPriceAX96 * sqrtPriceBX96);
+}
+
+function getAmount1ForLiquidity(
+    sqrtPriceAX96: bigint,
+    sqrtPriceBX96: bigint,
+    liquidity: bigint
+): bigint {
+    if (sqrtPriceAX96 > sqrtPriceBX96) {
+        [sqrtPriceAX96, sqrtPriceBX96] = [sqrtPriceBX96, sqrtPriceAX96];
+    }
+    return (liquidity * (sqrtPriceBX96 - sqrtPriceAX96)) / Q96;
+}
+
+function getAmountsForLiquidity(
+    sqrtPriceX96: bigint,
+    sqrtPriceLowerX96: bigint,
+    sqrtPriceUpperX96: bigint,
+    liquidity: bigint
+): [bigint, bigint] {
+    if (sqrtPriceLowerX96 > sqrtPriceUpperX96) {
+        [sqrtPriceLowerX96, sqrtPriceUpperX96] = [sqrtPriceUpperX96, sqrtPriceLowerX96];
+    }
+
+    if (sqrtPriceX96 <= sqrtPriceLowerX96) {
+        return [getAmount0ForLiquidity(sqrtPriceLowerX96, sqrtPriceUpperX96, liquidity), 0n];
+    } else if (sqrtPriceX96 < sqrtPriceUpperX96) {
+        const amount0 = getAmount0ForLiquidity(sqrtPriceX96, sqrtPriceUpperX96, liquidity);
+        const amount1 = getAmount1ForLiquidity(sqrtPriceLowerX96, sqrtPriceX96, liquidity);
+        return [amount0, amount1];
+    } else {
+        return [0n, getAmount1ForLiquidity(sqrtPriceLowerX96, sqrtPriceUpperX96, liquidity)];
+    }
+}
+
 export function useAddLiquidity() {
+    const { address } = useAccount();
     const { writeContract, data: hash, isPending, error } = useWriteContract();
     const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -104,12 +150,73 @@ export function useAddLiquidity() {
         hookAddress
     );
 
+    const oldPoolId = computePoolId(
+        zeroAddress,
+        KALA_TOKEN,
+        3000,
+        60,
+        OLD_KALA_HOOK
+    );
+
     const { data: slot0 } = useReadContract({
         address: STATE_VIEW_ADDRESS[sepolia.id] as `0x${string}`,
         abi: StateViewAbi,
         functionName: "getSlot0",
         args: [poolId],
     });
+
+    // Strategy 1: Check Current Pool, Test Contract as owner
+    const { data: pos1 } = useReadContract({
+        address: STATE_VIEW_ADDRESS[sepolia.id] as `0x${string}`,
+        abi: StateViewAbi,
+        functionName: "getPositionInfo",
+        args: [
+            poolId,
+            POOL_MODIFY_LIQUIDITY_TEST,
+            TICK_LOWER,
+            TICK_UPPER,
+            "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
+        ],
+        query: { refetchInterval: 5000 },
+    });
+
+    // Strategy 2: Check Current Pool, User as owner
+    const { data: pos2 } = useReadContract({
+        address: STATE_VIEW_ADDRESS[sepolia.id] as `0x${string}`,
+        abi: StateViewAbi,
+        functionName: "getPositionInfo",
+        args: address ? [
+            poolId,
+            address,
+            TICK_LOWER,
+            TICK_UPPER,
+            "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
+        ] : undefined,
+        query: { enabled: !!address, refetchInterval: 5000 },
+    });
+
+    // Strategy 3: Check Old Pool, Test Contract as owner
+    const { data: pos3 } = useReadContract({
+        address: STATE_VIEW_ADDRESS[sepolia.id] as `0x${string}`,
+        abi: StateViewAbi,
+        functionName: "getPositionInfo",
+        args: [
+            oldPoolId,
+            POOL_MODIFY_LIQUIDITY_TEST,
+            TICK_LOWER,
+            TICK_UPPER,
+            "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`,
+        ],
+        query: { refetchInterval: 5000 },
+    });
+
+    const getLiquidity = (data: any) => {
+        if (!data) return 0n;
+        if (Array.isArray(data)) return BigInt(data[0] || 0);
+        return BigInt(data.liquidity || 0);
+    };
+
+    const userLiquidity = getLiquidity(pos1) + getLiquidity(pos2) + getLiquidity(pos3);
 
     const addLiquidity = async (ethAmount: string, kalaAmount: string) => {
         if (!ethAmount || !kalaAmount) return;
@@ -181,9 +288,24 @@ export function useAddLiquidity() {
         });
     };
 
+    const getEstimatedAmounts = (liquidityDelta: bigint): [bigint, bigint] => {
+        const sqrtPriceX96 = slot0 ? BigInt(slot0[0]) : BigInt(0);
+        if (sqrtPriceX96 === BigInt(0) || liquidityDelta === BigInt(0)) return [0n, 0n];
+
+        return getAmountsForLiquidity(
+            sqrtPriceX96,
+            SQRT_PRICE_LOWER,
+            SQRT_PRICE_UPPER,
+            liquidityDelta
+        );
+    };
+
+    const userAmounts = getEstimatedAmounts(userLiquidity);
+
     return {
         addLiquidity,
         removeLiquidity,
+        getEstimatedAmounts,
         isPending,
         isConfirming,
         isSuccess,
@@ -191,5 +313,7 @@ export function useAddLiquidity() {
         hash,
         sqrtPriceX96: slot0 ? BigInt(slot0[0]) : undefined,
         poolId,
+        userLiquidity,
+        userAmounts,
     };
 }
